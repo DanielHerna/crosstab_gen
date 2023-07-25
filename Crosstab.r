@@ -11,7 +11,7 @@ library('tidyr')
 data <- read_xlsx('UnitC1.xlsx',sheet='data')
 segments <- read_xlsx('UnitC1.xlsx',sheet='Segment membership')
 
-crosstab <- function(data,segments){
+crosstab <- function(data,segments,metric){
 
   merged_table <- merge(data,segments,by='participant_id')
 
@@ -20,18 +20,26 @@ crosstab <- function(data,segments){
 
   data_stacked <- pivot_longer(merged_table, cols = -c(name,participant_id), names_to = "variable", values_to = "value")
 
-  final_data <- data_stacked%>%group_by(name,variable)%>%summarize(median(value))
-  final_data <- t(final_data)
+  if(metric=="median")
+  {
+    final_data <- data_stacked%>%group_by(name,variable)%>%summarize(value = median(value))
 
-  overall <- data_stacked%>%group_by(variable)%>%summarize(median(value))
-  overall <- rbind("Total",t(overall)) 
+  } else {final_data <- data_stacked%>%group_by(name,variable)%>%summarize(value = mean(value))}
+  
+  final_data <- pivot_wider(final_data, id_cols = variable, names_from = name, values_from = value)
 
-  final_data <<- cbind(final_data,overall)
+  if(metric=="median")
+  {
+    overall <- data_stacked%>%group_by(variable)%>%summarize(overall=median(value))
+
+  } else {overall <- data_stacked%>%group_by(variable)%>%summarize(overall=mean(value))}
+
+  final_data <- cbind(final_data,overall[,2])
   return(final_data)
 
 }
 
-data_test <- crosstab(data = data,segments = segments)
+data_test <- crosstab(data = data,segments = segments,metric = "median")
 View(data_test)
 
 write.csv(data_test,'data_test.csv')
